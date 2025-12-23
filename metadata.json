@@ -1,0 +1,7 @@
+{
+  "name": "EduPulse Unified Platform",
+  "description": "A comprehensive cloud-based educational management system for centralized academic notices, schedules, performance tracking, and campus life integration.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
