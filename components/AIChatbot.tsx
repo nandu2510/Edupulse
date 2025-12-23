@@ -1,142 +1,133 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, User, Bot, Loader2, HelpCircle } from 'lucide-react';
-import { chatWithAssistant } from '../services/geminiService';
+import { MessageSquare, Send, X, Sparkles, Bot, User, Loader2 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
-const AIChatbot: React.FC = () => {
+interface Message {
+  role: 'user' | 'model';
+  text: string;
+}
+
+const AIChatbot: React.FC<{ isFaculty?: boolean }> = ({ isFaculty }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([
-    { role: 'assistant', text: "Hi! I'm EduPulse AI. I can help you find your grades, materials, or navigate the platform. What's on your mind?" }
-  ]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'model', text: `Greetings. I am the EduPulse AI Node. How can I assist with your ${isFaculty ? 'faculty' : 'academic'} operations today?` }
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages]);
 
-  const handleSend = async (textOverride?: string) => {
-    const textToSend = textOverride || input;
-    if (!textToSend.trim() || isTyping) return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
-    const userMessage = textToSend.trim();
+    const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
-    setIsTyping(true);
+    setIsLoading(true);
 
-    const history = messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.text }]
-    }));
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const chat = ai.chats.create({
+        model: 'gemini-3-flash-preview',
+        config: {
+          systemInstruction: `You are EduPulse AI, a helpful and efficient educational assistant for ${isFaculty ? 'faculty' : 'students'}. Provide clear, professional, and institutional-themed responses.`,
+        },
+      });
 
-    const response = await chatWithAssistant(history, userMessage);
-    setMessages(prev => [...prev, { role: 'assistant', text: response }]);
-    setIsTyping(false);
+      const result = await chat.sendMessageStream({ message: userMessage });
+      
+      setMessages(prev => [...prev, { role: 'model', text: '' }]);
+      
+      let fullResponse = '';
+      for await (const chunk of result) {
+        const textChunk = chunk.text || '';
+        fullResponse += textChunk;
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].text = fullResponse;
+          return updated;
+        });
+      }
+    } catch (error) {
+      setMessages(prev => [...prev, { role: 'model', text: "Connection to the AI Node was interrupted. Please try again." }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const suggestions = [
-    "Where are my notes?",
-    "How to sync deadlines?",
-    "Check my grades",
-    "Campus events"
-  ];
-
   return (
-    <div className="fixed bottom-10 right-10 z-[100]">
-      {isOpen ? (
-        <div className="bg-white w-[400px] h-[600px] rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
-          <div className="p-6 bg-slate-900 text-white flex items-center justify-between shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-600/20">
-                <Sparkles size={18} className="text-white" />
+    <div className="fixed bottom-8 right-8 z-[200]">
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="w-16 h-16 bg-slate-900 text-white rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all group relative overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-indigo-600 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+          <MessageSquare size={28} />
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-500 border-4 border-white rounded-full"></span>
+        </button>
+      )}
+
+      {isOpen && (
+        <div className="bg-white w-[400px] h-[600px] rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] border border-slate-100 flex flex-col overflow-hidden animate-in slide-in-from-bottom-20 duration-500">
+          <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles size={20} />
               </div>
               <div>
-                <h4 className="font-black tracking-tight leading-none">EduPulse Assistant</h4>
-                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1">Platform Intelligence</p>
+                <h4 className="font-black text-lg tracking-tight">AI Node Alpha</h4>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Synchronized
+                </div>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-2 rounded-xl transition-all">
+            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all">
               <X size={24} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/50" ref={scrollRef}>
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  msg.role === 'assistant' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-400 shadow-sm'
-                }`}>
-                  {msg.role === 'assistant' ? <Bot size={16} /> : <User size={16} />}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${msg.role === 'model' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                  {msg.role === 'model' ? <Bot size={16} /> : <User size={16} />}
                 </div>
                 <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium leading-relaxed shadow-sm ${
-                  msg.role === 'assistant' 
+                  msg.role === 'model' 
                     ? 'bg-white text-slate-800 rounded-tl-none border border-slate-100' 
                     : 'bg-indigo-600 text-white rounded-tr-none'
                 }`}>
-                  {msg.text}
+                  {msg.text || (isLoading && i === messages.length - 1 && <Loader2 size={16} className="animate-spin" />)}
                 </div>
               </div>
             ))}
-            {isTyping && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-md">
-                  <Bot size={16} />
-                </div>
-                <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2 border border-slate-100">
-                  <Loader2 size={16} className="animate-spin text-indigo-600" />
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Processing...</span>
-                </div>
-              </div>
-            )}
           </div>
 
-          {messages.length < 4 && !isTyping && (
-            <div className="px-6 py-2 flex flex-wrap gap-2 bg-slate-50/50">
-               {suggestions.map(s => (
-                 <button 
-                  key={s} 
-                  onClick={() => handleSend(s)}
-                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
-                >
-                   {s}
-                 </button>
-               ))}
-            </div>
-          )}
-
-          <div className="p-6 bg-white border-t border-slate-100 flex gap-3">
-            <input 
-              type="text" 
+          <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-3">
+            <input
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me anything about EduPulse..."
-              className="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm font-medium focus:ring-4 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400"
+              placeholder="Query institutional engine..."
+              className="flex-1 bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
             />
-            <button 
-              onClick={() => handleSend()}
-              disabled={isTyping || !input.trim()}
-              className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50"
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-indigo-600 transition-all disabled:opacity-50 active:scale-95"
             >
               <Send size={20} />
             </button>
-          </div>
+          </form>
         </div>
-      ) : (
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-2xl hover:bg-indigo-600 hover:scale-110 active:scale-95 transition-all group relative border-4 border-white"
-        >
-          <MessageSquare className="group-hover:rotate-12 transition-transform" size={28} />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full animate-ping"></span>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border-2 border-white"></span>
-          <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-white px-4 py-2 rounded-xl text-slate-800 font-bold text-xs whitespace-nowrap shadow-xl opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100 pointer-events-none">
-            How can I help you?
-          </div>
-        </button>
       )}
     </div>
   );

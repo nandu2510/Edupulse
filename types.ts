@@ -23,6 +23,26 @@ export interface User {
   studentId?: string;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: 'announcement' | 'deadline' | 'system';
+  isRead: boolean;
+}
+
+export interface StudentRecord {
+  id: string;
+  name: string;
+  avatar: string;
+  attendance: number;
+  cgpa: number;
+  lastAssessment: number;
+  status: 'At Risk' | 'Average' | 'Excellent';
+  department: string;
+}
+
 export interface Announcement {
   id: string;
   title: string;

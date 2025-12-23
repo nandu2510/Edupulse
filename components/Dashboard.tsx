@@ -54,7 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onDigestClick, tasks, announcemen
                 className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-5 rounded-[2rem] font-black text-lg transition-all shadow-xl shadow-indigo-600/20 group"
               >
                 <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
-                AI Briefing
+                Institutional Briefing
               </button>
               <button 
                 onClick={() => setShowCourseMap(true)}

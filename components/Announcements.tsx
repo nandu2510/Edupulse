@@ -2,33 +2,31 @@
 import React, { useState } from 'react';
 import { Megaphone, Calendar, User, Clock, CalendarPlus, CheckCircle2, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { Priority, Announcement, Task } from '../types';
-import { extractDeadlines } from '../services/geminiService';
 
 interface AnnouncementsProps {
   announcements: Announcement[];
   onAddTask: (task: Omit<Task, 'id'>) => void;
+  // Prop to distinguish between student and faculty view
+  isFaculty?: boolean;
 }
 
-const Announcements: React.FC<AnnouncementsProps> = ({ announcements, onAddTask }) => {
+const Announcements: React.FC<AnnouncementsProps> = ({ announcements, onAddTask, isFaculty }) => {
   const [extractingId, setExtractingId] = useState<string | null>(null);
   const [syncedIds, setSyncedIds] = useState<Set<string>>(new Set());
 
-  const handleSync = async (ann: Announcement) => {
+  const handleSync = (ann: Announcement) => {
     setExtractingId(ann.id);
-    try {
-      const deadlineInfo = await extractDeadlines(ann.content);
+    // Simulation of processing instead of AI
+    setTimeout(() => {
       onAddTask({
-        title: deadlineInfo?.title || ann.title,
-        dueDate: deadlineInfo?.date || ann.deadline || ann.date,
-        category: (deadlineInfo?.type as any) || 'Assignment',
+        title: `Reminder: ${ann.title}`,
+        dueDate: ann.deadline || ann.date,
+        category: 'Assignment',
         status: 'Pending'
       });
       setSyncedIds(prev => new Set([...prev, ann.id]));
-    } catch (err) {
-      console.error(err);
-    } finally {
       setExtractingId(null);
-    }
+    }, 800);
   };
 
   const getPriorityTheme = (priority: Priority) => {
@@ -104,23 +102,26 @@ const Announcements: React.FC<AnnouncementsProps> = ({ announcements, onAddTask 
                         </div>
                       </div>
                       
-                      <button
-                        onClick={() => handleSync(ann)}
-                        disabled={extractingId === ann.id || syncedIds.has(ann.id)}
-                        className={`flex items-center gap-3 px-8 py-4 rounded-[1.5rem] text-sm font-black transition-all shadow-xl active:scale-95 ${
-                          syncedIds.has(ann.id)
-                            ? 'bg-emerald-500 text-white shadow-emerald-200'
-                            : 'bg-slate-900 text-white hover:bg-indigo-600 disabled:opacity-70 shadow-slate-200'
-                        }`}
-                      >
-                        {extractingId === ann.id ? (
-                          <><Loader2 size={18} className="animate-spin" /> Analyzing...</>
-                        ) : syncedIds.has(ann.id) ? (
-                          <><CheckCircle2 size={18} /> Synced to Hub</>
-                        ) : (
-                          <><CalendarPlus size={18} /> Sync Deadline</>
-                        )}
-                      </button>
+                      {/* Hide sync button for faculty as they are the ones issuing the announcement */}
+                      {!isFaculty && (
+                        <button
+                          onClick={() => handleSync(ann)}
+                          disabled={extractingId === ann.id || syncedIds.has(ann.id)}
+                          className={`flex items-center gap-3 px-8 py-4 rounded-[1.5rem] text-sm font-black transition-all shadow-xl active:scale-95 ${
+                            syncedIds.has(ann.id)
+                              ? 'bg-emerald-500 text-white shadow-emerald-200'
+                              : 'bg-slate-900 text-white hover:bg-indigo-600 disabled:opacity-70 shadow-slate-200'
+                          }`}
+                        >
+                          {extractingId === ann.id ? (
+                            <><Loader2 size={18} className="animate-spin" /> Syncing...</>
+                          ) : syncedIds.has(ann.id) ? (
+                            <><CheckCircle2 size={18} /> Synced to Hub</>
+                          ) : (
+                            <><CalendarPlus size={18} /> Sync Deadline</>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
